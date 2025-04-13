@@ -1,0 +1,24 @@
+[project]
+name = "pydiameter2json"
+version = "0.1.0"
+description = "A Python library to convert Diameter protocol messages to JSON."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "diameter-codec>=1.0.3",
+    "python-diameter>=0.7.4",
+    "typer>=0.15.2",
+]
+
+# Add author and license information
+license = { text = "MIT" }
+
+# Add classifiers for PyPI
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
