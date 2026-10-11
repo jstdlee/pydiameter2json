@@ -1,5 +1,5 @@
 from diameter.message import Avp
-from diameter.message.avp import AvpAddress, AvpAddressSolo
+from diameter.message.avp import AvpAddress
 from diameter.message.avp.errors import AvpDecodeError, AvpEncodeError
 from diameter.message.constants import *
 from diameter.message import Message
@@ -13,7 +13,7 @@ def avp_to_json(avp):
             return value.isoformat()  # Convert datetime to ISO 8601 string
         elif isinstance(value, list):  # Handle lists of AVPs (e.g., grouped AVPs)
             return [avp_to_json(sub_avp) for sub_avp in value]
-        elif isinstance(value, AvpAddress) or isinstance(value, AvpAddressSolo):  # Handle AvpAddress type
+        elif isinstance(value, AvpAddress):  # Handle AvpAddress type
             # Convert AvpAddress to a readable IP address
             return str(value)
         elif isinstance(value, bytes):  # Handle raw bytes
