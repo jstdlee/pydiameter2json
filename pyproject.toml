@@ -24,6 +24,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 
+[project.urls]
+Homepage = "https://github.com/jstdlee/pydiameter2json"
+Repository = "https://github.com/jstdlee/pydiameter2json"
+Issues = "https://github.com/jstdlee/pydiameter2json/issues"
+
 [project.scripts]
 pydiameter2json = "pydiameter2json.__main__:app"
 

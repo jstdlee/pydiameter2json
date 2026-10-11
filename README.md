@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](pyproject.toml)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen.svg)](tests/)
 [![uv](https://img.shields.io/badge/Managed-uv-purple.svg)](https://github.com/astral-sh/uv)
 
@@ -77,19 +77,32 @@ Each AVP dict has `avp_hex`, `code`, `length`, `name`, `value` and `value_hex`.
 
 #### 🖥️ **CLI**
 
-The hex is a command argument. It may start with `0x` and may contain spaces.
-Use `$(cat file)` to read from a file.
+The input is the hex text, a file path, or `-` for standard input. The hex may start
+with `0x` and may contain spaces or new lines. An argument that is an existing file is
+read as a file.
 
 ```bash
 pydiameter2json message2json "0100006c80000118..."          # tree (default)
 pydiameter2json message2json --format json "0100006c..."    # JSON
 pydiameter2json avp2json "0000010840000031..."
-pydiameter2json message2json "$(cat message.hex)"
+pydiameter2json message2json message.hex                    # read a file
+cat message.hex | pydiameter2json message2json -            # read stdin
 pydiameter2json --help
 ```
 
-The CLI exits with code 1 and a message on stderr for bad hex, truncated input,
-a wrong length field or an unsupported Diameter version.
+The CLI exits with code 1 and writes a message on stderr for bad hex, truncated input,
+a wrong length field or an unsupported Diameter version. Standard output stays empty
+in that case. On success, standard output holds only the tree or the JSON.
+
+Address AVPs without an address-family prefix show as text: `Framed-IP-Address`,
+`Framed-IP-Netmask`, and the 3GPP SGSN and GGSN address AVPs (IPv4 and IPv6).
+
+#### Check against real captures
+
+The output was compared with tshark on about 1,700 messages from public Magma,
+open5gs and nDPI captures (Gx, Gy, S6a, Rx). AVP code, flags, vendor ID, length,
+raw bytes and order all match. A few real messages are in `tests/data`; see
+`tests/data/SOURCES.md` for their source and licence.
 
 ### 🔍 **Real Examples**
 
@@ -195,7 +208,10 @@ We love contributions! Here's how to get started:
 
 ## 📄 **License**
 
-**MIT License** (see `pyproject.toml`).
+**MIT License** (see [LICENSE](LICENSE)).
+
+The upstream project declares MIT in `pyproject.toml` but had no LICENSE file. This repository adds the standard MIT text.
+
 
 ## 🌟 **Support**
 

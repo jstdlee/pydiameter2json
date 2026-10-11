@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import struct
 from datetime import datetime, timezone
@@ -43,10 +44,35 @@ def _time_to_iso(avp: AvpTime) -> str:
     return datetime.fromtimestamp(unix, tz=timezone.utc).isoformat()
 
 
+# AVPs that carry a bare IPv4 or IPv6 address (no address-family prefix), keyed by
+# (vendor id, code). The library decodes these as hex or as text, so render them here.
+_RAW_IP_AVPS = {
+    (0, 8),  # Framed-IP-Address
+    (0, 9),  # Framed-IP-Netmask
+    (10415, 6),  # 3GPP-SGSN-Address
+    (10415, 7),  # 3GPP-GGSN-Address
+    (10415, 15),  # 3GPP-SGSN-IPv6-Address
+    (10415, 16),  # 3GPP-GGSN-IPv6-Address
+}
+
+
+def _raw_ip(avp):
+    """Return the address text for a raw-IP AVP, else None."""
+    vendor = avp.vendor_id if avp.flags & 0x80 else 0
+    if (vendor, avp.code) not in _RAW_IP_AVPS:
+        return None
+    if len(avp.payload) not in (4, 16):
+        return None
+    return str(ipaddress.ip_address(bytes(avp.payload)))
+
+
 def avp_to_json(avp):
     """Convert an Avp (recursively for grouped AVPs) to a JSON-ready dict."""
     try:
-        if isinstance(avp, AvpTime):
+        raw_ip = _raw_ip(avp)
+        if raw_ip is not None:
+            value = raw_ip
+        elif isinstance(avp, AvpTime):
             value = _time_to_iso(avp)
         elif isinstance(avp, AvpAddress):
             # The library returns (address family, text); keep only the address.

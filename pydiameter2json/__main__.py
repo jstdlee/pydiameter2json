@@ -1,6 +1,8 @@
 import json
 import re
+import sys
 from enum import Enum
+from pathlib import Path
 
 import typer
 from diameter.message import Avp, Message
@@ -60,9 +62,30 @@ def _fail(message: str):
     raise typer.Exit(code=1)
 
 
+def read_input(arg: str) -> str:
+    """Return the hex text for the argument.
+
+    "-" reads standard input. An existing file path reads that file.
+    Anything else is the hex text itself.
+    """
+    if arg == "-":
+        return sys.stdin.read()
+    try:
+        path = Path(arg)
+        is_file = path.is_file()
+    except (OSError, ValueError):  # for example a name that is too long: it is hex
+        return arg
+    if is_file:
+        try:
+            return path.read_text()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ValueError(f"cannot read file {arg!r} ({exc})") from exc
+    return arg
+
+
 def _convert(hex_text: str, parser, to_json, fmt: OutputFormat, what: str):
     try:
-        data = parse_hex(hex_text)
+        data = parse_hex(read_input(hex_text))
     except ValueError as exc:
         _fail(f"invalid hex input ({exc})")
     try:
@@ -77,7 +100,7 @@ def _convert(hex_text: str, parser, to_json, fmt: OutputFormat, what: str):
 
 @app.command()
 def avp2json(
-    avp_hex: str = typer.Argument(..., help="AVP as hex (0x prefix and spaces allowed)."),
+    avp_hex: str = typer.Argument(..., help="AVP as hex (0x prefix and spaces allowed), a file path, or - for stdin."),
     fmt: OutputFormat = typer.Option(OutputFormat.tree, "--format", "-f", help="Output format."),
 ):
     """Convert a Diameter AVP in hex format."""
@@ -86,7 +109,7 @@ def avp2json(
 
 @app.command()
 def message2json(
-    diameter_hex: str = typer.Argument(..., help="Message as hex (0x prefix and spaces allowed)."),
+    diameter_hex: str = typer.Argument(..., help="Message as hex (0x prefix and spaces allowed), a file path, or - for stdin."),
     fmt: OutputFormat = typer.Option(OutputFormat.tree, "--format", "-f", help="Output format."),
 ):
     """Convert a Diameter message in hex format."""

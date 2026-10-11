@@ -12,6 +12,7 @@ DATA = Path(__file__).parent
 CCR_HEX = (DATA / "gx.ccr.grouped.txt").read_text().strip()
 ORIGIN_HOST_HEX = (DATA / "gx.origin.host.txt").read_text().strip()
 runner = CliRunner()
+split_runner = CliRunner(mix_stderr=False)
 
 
 def find(avps, code):
@@ -107,3 +108,38 @@ def test_cli_decode_failure(cmd):
     r = runner.invoke(app, [cmd, "0000"])
     assert r.exit_code == 1
     assert "cannot decode" in r.output
+
+
+@pytest.mark.parametrize("cmd,hex_text", [("avp2json", ORIGIN_HOST_HEX), ("message2json", CCR_HEX)])
+def test_cli_reads_stdin(cmd, hex_text):
+    r = runner.invoke(app, [cmd, "-", "-f", "json"], input=hex_text + "\n")
+    assert r.exit_code == 0
+    json.loads(r.stdout)
+
+
+def test_cli_reads_file(tmp_path):
+    path = tmp_path / "msg.txt"
+    path.write_text(CCR_HEX + "\n")
+    r = runner.invoke(app, ["message2json", str(path), "-f", "json"])
+    assert r.exit_code == 0
+    assert find(json.loads(r.stdout), 443)["value"][0]["code"] == 450
+
+
+def test_cli_missing_file_is_treated_as_hex(tmp_path):
+    r = split_runner.invoke(app, ["avp2json", str(tmp_path / "nope.txt")])
+    assert r.exit_code == 1
+    assert "invalid hex" in r.stderr
+
+
+def test_cli_empty_stdin():
+    r = split_runner.invoke(app, ["message2json", "-"], input="")
+    assert r.exit_code == 1
+    assert "empty hex" in r.stderr
+
+
+@pytest.mark.parametrize("cmd", ["avp2json", "message2json"])
+def test_cli_errors_use_stderr_only(cmd):
+    r = split_runner.invoke(app, [cmd, "0000"])
+    assert r.exit_code == 1
+    assert r.stdout == ""
+    assert r.stderr.startswith("Error: ")
