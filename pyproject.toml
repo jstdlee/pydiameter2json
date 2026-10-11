@@ -24,8 +24,15 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 
+[project.scripts]
+pydiameter2json = "pydiameter2json.__main__:app"
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
