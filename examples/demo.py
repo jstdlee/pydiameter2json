@@ -23,7 +23,7 @@ def main():
         diameter_bytes = bytes.fromhex(hex)
     
         # Create a Diameter message from the bytes
-        message = Message.from_bytes(diameter_bytes)
+        message = Message.from_bytes(diameter_bytes, plain_msg=True)
     
         # Convert the message to JSON
         json_result = message_to_json(message)

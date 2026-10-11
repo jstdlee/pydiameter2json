@@ -2,13 +2,12 @@
 
 <div align="center">
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](pyproject.toml)
 [![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen.svg)](tests/)
-[![Code Style](https://img.shields.io/badge/Code%20Style-Black-000000.svg)](https://github.com/psf/black)
 [![uv](https://img.shields.io/badge/Managed-uv-purple.svg)](https://github.com/astral-sh/uv)
 
-*Transform Diameter Protocol Messages into Beautiful JSON with AI-Powered Precision*
+*Decode Diameter messages and AVPs (RFC 6733) from hex into JSON or a tree view*
 
 </div>
 
@@ -18,17 +17,17 @@
 
 | 🎯 **Core Features** | 🛠 **Technical Excellence** |
 |:-------------------|:-------------------------|
-| 🔍 **Real-time Parsing** | ⚡ **Lightning Fast** |
-| 📊 **JSON Output** | 🎯 **100% Accurate** |
+| 🔍 **Hex to JSON/tree** | ⚡ **Typer CLI** |
+| 📊 **JSON Output** | 🎯 **Wire-order AVPs** |
 | 🎨 **CLI Interface** | 🧪 **Comprehensive Tests** |
-| 🔧 **AVP Extraction** | 📈 **Production Ready** |
-| 🌐 **Multi-Protocol** | 🪄 **Zero Dependencies** |
+| 🔧 **AVP Extraction** | 📈 **Alpha** |
+| 🌐 **Grouped and vendor AVPs** | 🪄 **Built on python-diameter** |
 
 </div>
 
 ## 🌟 Why PyDiameter2JSON?
 
-**PyDiameter2JSON** is the ultimate solution for telecom engineers, network analysts, and developers working with Diameter protocol. Built with modern Python and powered by cutting-edge parsing algorithms, it transforms complex Diameter messages into human-readable JSON instantly.
+**PyDiameter2JSON** turns Diameter messages and AVPs (hex) into JSON or a tree. It uses [python-diameter](https://github.com/mensonen/diameter) to decode the AVPs. Only the AVPs are shown; the message header (command code, flags, identifiers) is not part of the output.
 
 ### 🎯 Perfect For
 - 📡 **Telecom Network Analysis**
@@ -42,62 +41,66 @@
 ### 📦 Installation
 
 ```bash
-# Using uv (Recommended)
-uv add pydiameter2json
-
-# Using pip
-pip install pydiameter2json
-
-# Development install
 git clone https://github.com/jstdlee/pydiameter2json.git
 cd pydiameter2json
 uv sync
+uv run pydiameter2json --help
 ```
 
 ### 🎯 Basic Usage
 
 #### 🐍 **Library Usage**
 
+The functions take `python-diameter` objects (not hex strings) and return Python
+lists and dicts. Use `json.dumps` to get text.
+
 ```python
-from pydiameter2json import message_to_json, avp_to_json
+import json
+from diameter.message import Avp, Message
+from pydiameter2json.main import avp_to_json, message_to_json
 
-# Parse complete Diameter messages
-message_hex = "0100006c80000118..."
-json_output = message_to_json(message_hex)
-print(json_output)
-# → [{"code": 264, "name": "Origin-Host", "value": "..."}, ...]
+# A whole message: list of AVP dicts, in wire order
+message = Message.from_bytes(bytes.fromhex(message_hex), plain_msg=True)
+print(json.dumps(message_to_json(message), indent=4))
 
-# Parse individual AVPs
-avp_hex = "0000010840000031..."
-avp_json = avp_to_json(avp_hex)
-print(avp_json)
-# → {"code": 264, "name": "Origin-Host", "value": "..."}
+# One AVP: a single dict
+print(avp_to_json(Avp.from_bytes(bytes.fromhex(avp_hex))))
 ```
 
-#### 🖥️ **CLI Magic**
+Use `plain_msg=True`. Without it, python-diameter reorders the AVPs and adds
+default AVPs (for example `Auth-Application-Id`) that are not in the message.
+
+Each AVP dict has `avp_hex`, `code`, `length`, `name`, `value` and `value_hex`.
+`value` is a number, text, an ISO 8601 UTC string (Time AVPs), an address string
+(Address AVPs), hex (undecodable or non-text OctetString), or a list of AVP dicts
+(Grouped AVPs).
+
+#### 🖥️ **CLI**
+
+The hex is a command argument. It may start with `0x` and may contain spaces.
+Use `$(cat file)` to read from a file.
 
 ```bash
-# Parse Diameter messages
-pydiameter2json message2json "0100006c80000118..."
-
-# Parse individual AVPs
+pydiameter2json message2json "0100006c80000118..."          # tree (default)
+pydiameter2json message2json --format json "0100006c..."    # JSON
 pydiameter2json avp2json "0000010840000031..."
-
-# Get help
+pydiameter2json message2json "$(cat message.hex)"
 pydiameter2json --help
 ```
 
+The CLI exits with code 1 and a message on stderr for bad hex, truncated input,
+a wrong length field or an unsupported Diameter version.
+
 ### 🔍 **Real Examples**
 
-#### 📊 **Gx Interface Message**
+#### 📊 **Device-Watchdog-Request**
 ```bash
-# Device-Watchdog-Request parsing
 pydiameter2json message2json "0100006c8000011800000000a3734495a375f3e40000010840000031707473642d362e6d6f64756c652d322e54504550545330312e74616977616e6d6f62696c652e636f6d000000000001284000001874616977616e6d6f62696c652e636f6d000001164000000c5416d236"
 
-# Output:
-# ├── (264, 49), Origin-Host, ptsd-6.module-2.TPEPTS01.taiwanmobile.com
-# ├── (296, 24), Origin-Realm, taiwanmobile.com
-# └── (278, 12), Origin-State-Id, 1410781750
+# Output: (code, length), name, value, value_hex
+# ├── (264, 49), Origin-Host, ptsd-6.module-2.TPEPTS01.taiwanmobile.com, 707473...
+# ├── (296, 24), Origin-Realm, taiwanmobile.com, 74616977...
+# └── (278, 12), Origin-State-Id, 1410781750, 5416d236
 ```
 
 #### 🔧 **Individual AVP**
@@ -106,7 +109,7 @@ pydiameter2json message2json "0100006c8000011800000000a3734495a375f3e40000010840
 pydiameter2json avp2json "0000010840000031707473642d362e6d6f64756c652d322e54504550545330312e74616977616e6d6f62696c652e636f6d000000"
 
 # Output:
-# └── (264, 49), Origin-Host, ptsd-6.module-2.TPEPTS01.taiwanmobile.com
+# └── (264, 49), Origin-Host, ptsd-6.module-2.TPEPTS01.taiwanmobile.com, 707473...
 ```
 
 ## 🧪 **Testing**
@@ -120,7 +123,7 @@ pydiameter2json avp2json "0000010840000031707473642d362e6d6f64756c652d322e545045
 uv run pytest tests/ -v
 
 # Run with coverage
-uv run pytest tests/ --cov=pydiameter2json --cov-report=html
+uv run --with pytest-cov pytest tests/ --cov=pydiameter2json
 
 # Run specific test
 uv run pytest tests/test_message_parser.py::TestDiameterMessageParsing::test_origin_host_avp -v
@@ -131,29 +134,19 @@ uv run pytest tests/test_message_parser.py::TestDiameterMessageParsing::test_ori
 - ✅ **AVP Extraction**
 - ✅ **Error Handling**
 - ✅ **Edge Cases**
-- ✅ **Performance**
 
 </div>
 
 ## 📚 **API Reference**
 
-### `message_to_json(hex_string: str) → str`
-Parse complete Diameter message from hex string to JSON.
+### `message_to_json(message: Message) → list[dict]`
+AVPs of a `diameter.message.Message`, in wire order. Grouped AVPs are nested.
 
-**Parameters:**
-- `hex_string` (str): Hexadecimal representation of Diameter message
+### `avp_to_json(avp: Avp) → dict`
+One AVP (recursive for Grouped AVPs).
 
-**Returns:**
-- `str`: JSON formatted string with parsed AVPs
-
-### `avp_to_json(hex_string: str) → str`
-Parse individual AVP from hex string to JSON.
-
-**Parameters:**
-- `hex_string` (str): Hexadecimal representation of AVP
-
-**Returns:**
-- `str`: JSON formatted string with AVP details
+### `json_to_tree(data) → list[str]`
+Tree lines for the output of the two functions above. `print_json_tree(data)` prints them.
 
 ## 🛠️ **Development**
 
@@ -166,9 +159,6 @@ cd pydiameter2json
 
 # Install with dev dependencies
 uv sync --dev
-
-# Install pre-commit hooks
-uv run pre-commit install
 ```
 
 ### 🧪 **Running Tests**
@@ -179,9 +169,6 @@ uv run pytest
 
 # With coverage
 uv run pytest --cov=pydiameter2json
-
-# Performance tests
-uv run pytest tests/ -k performance
 ```
 
 ## 🎯 **Contributing**
@@ -199,22 +186,16 @@ We love contributions! Here's how to get started:
    ```bash
    uv run pytest tests/
    ```
-4. **🎨 Format code**
-   ```bash
-   uv run black .
-   uv run ruff check --fix .
-   ```
-5. **📤 Push and create PR**
+4. **📤 Push and create PR**
 
 ### 📋 **Contributing Guidelines**
 - ✅ **Tests required** for new features
 - ✅ **Documentation** updates for API changes
-- ✅ **Code style** enforced by Black & Ruff
 - ✅ **Conventional commits** preferred
 
 ## 📄 **License**
 
-**MIT License** - see [LICENSE](LICENSE) file for details.
+**MIT License** (see `pyproject.toml`).
 
 ## 🌟 **Support**
 

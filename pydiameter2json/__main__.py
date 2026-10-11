@@ -25,6 +25,36 @@ def parse_hex(text: str) -> bytes:
     return bytes.fromhex(cleaned)
 
 
+def _parse_avp(data: bytes):
+    """Parse one AVP and reject input whose length field does not match the bytes."""
+    avp = Avp.from_bytes(data)
+    declared = int.from_bytes(data[5:8], "big")
+    header_len = 12 if data[4] & 0x80 else 8
+    if declared < header_len:
+        raise ValueError(f"AVP length field {declared} is smaller than its header ({header_len})")
+    padded = (declared + 3) // 4 * 4
+    if padded != len(data):
+        raise ValueError(
+            f"AVP length field says {declared} bytes ({padded} with padding), got {len(data)}"
+        )
+    return avp
+
+
+def _parse_message(data: bytes):
+    """Parse without the library's typed command classes.
+
+    The typed classes reorder AVPs and add defaults (e.g. Auth-Application-Id)
+    that are not on the wire. plain_msg=True keeps the AVPs exactly as received.
+    """
+    if len(data) >= 4:
+        if data[0] != 1:
+            raise ValueError(f"unsupported Diameter version {data[0]} (expected 1)")
+        declared = int.from_bytes(data[1:4], "big")
+        if declared != len(data):
+            raise ValueError(f"header length field says {declared} bytes, got {len(data)}")
+    return Message.from_bytes(data, plain_msg=True)
+
+
 def _fail(message: str):
     typer.echo(f"Error: {message}", err=True)
     raise typer.Exit(code=1)
@@ -51,7 +81,7 @@ def avp2json(
     fmt: OutputFormat = typer.Option(OutputFormat.tree, "--format", "-f", help="Output format."),
 ):
     """Convert a Diameter AVP in hex format."""
-    _convert(avp_hex, Avp.from_bytes, avp_to_json, fmt, "AVP")
+    _convert(avp_hex, _parse_avp, avp_to_json, fmt, "AVP")
 
 
 @app.command()
@@ -60,7 +90,7 @@ def message2json(
     fmt: OutputFormat = typer.Option(OutputFormat.tree, "--format", "-f", help="Output format."),
 ):
     """Convert a Diameter message in hex format."""
-    _convert(diameter_hex, Message.from_bytes, message_to_json, fmt, "message")
+    _convert(diameter_hex, _parse_message, message_to_json, fmt, "message")
 
 
 if __name__ == "__main__":
